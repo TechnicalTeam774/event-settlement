@@ -978,7 +978,7 @@ function loadXLSX() {
   if (!xlsxPromise) {
     xlsxPromise = new Promise(function (resolve, reject) {
       var s = document.createElement('script');
-      s.src = 'vendor/xlsx.full.min.js';
+      s.src = 'vendor/xlsx.full.min.js?v=0.18.5';
       s.onload = function () { resolve(window.XLSX); };
       s.onerror = function () { xlsxPromise = null; reject(new Error('Could not load the Excel library. Reload the page.')); };
       document.head.appendChild(s);
