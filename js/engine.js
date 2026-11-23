@@ -560,7 +560,7 @@ function esPlanImport_(all, rhdr, todayKey, ambiguousOrder) {
 
 /** Column names (normalized header text) the tool reads from RAW data. */
 var ES_RAW_FIELDS = ['mid', 'storename', 'status', 'trx id', 'type', 'date', 'time', 'amount', 'card type',
-  'card num', 'auth id', 'settlement amount', 'settleted', 'terminalid', 'tid'];
+  'card num', 'auth id', 'settlement amount', 'settleted', 'settlement status', 'terminalid', 'tid'];
 var ES_RAW_REQUIRED = ['mid', 'status', 'trx id', 'date', 'settlement amount', 'settleted', 'tid'];
 
 /** Header row (array of cell values) -> {name: 1-based column index}. Missing required names -> {missing}. */
@@ -616,7 +616,7 @@ function esRecsFromColumns_(cols, n, todayKey) {
       paid: paid, paidLabel: plabel, paidKey: pkey, batch: '',
       store: String(val('storename', i)).trim(), cardType: String(val('card type', i)).trim(),
       card: String(val('card num', i)).trim(), auth: String(val('auth id', i)).trim(),
-      termId: String(val('terminalid', i)).trim()
+      termId: String(val('terminalid', i)).trim(), stLabel: String(val('settlement status', i)).trim().toUpperCase()
     };
     recs.push(r);
   }
@@ -783,6 +783,10 @@ function esIssues_(recs, todayKey) {
             : 'Same TRX ID as row ' + r.dupOf + '. Counted once.' });
       }
       return;
+    }
+    if (r.stLabel && (r.stLabel === 'SETTLED') !== r.paid && (r.stLabel === 'SETTLED' || r.stLabel === 'NOTSETTLED')) {
+      out.push({ r: r, kind: 'STATUS', text: 'Settlement Status says ' + r.stLabel + ' but Settleted is "' + (r.paid ? r.paidLabel : '0') +
+        '". The tool goes by Settleted' });
     }
     if (r.paid) return;
     if (!r.dateKey) out.push({ r: r, kind: 'NO_DATE', text: 'Date missing or not readable: "' + r.dateRaw + '"' });

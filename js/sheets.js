@@ -380,7 +380,9 @@ Store.prototype.settle = function (req) {
         for (var i = run.start; i <= run.end; i++) vals.push([label]);
         return { range: tab + '!' + col + run.start + ':' + col + run.end, values: vals };
       });
-      return self.client.update(c.sheetId, data, 'RAW').then(function () {
+      return self.statusUpdates(raw.hm, allRows, 'SETTLED').then(function (extra) {
+        return self.client.update(c.sheetId, data.concat(extra), 'RAW');
+      }).then(function () {
         step('Reading it back');
         return self.client.batchGet(c.sheetId, data.map(function (d) { return d.range; }), { major: 'COLUMNS' });
       }).then(function (vrs) {
@@ -399,6 +401,32 @@ Store.prototype.settle = function (req) {
         stamped: allRows.length, notConfirmed: bad, logRow: pStart, raw: raw };
     });
   });
+};
+
+/**
+ * Settlement Status next to Settleted: rows whose cell is a plain value get SETTLED / NOTSETTLED;
+ * rows that still hold the team's formula are left alone (the formula follows Settleted).
+ */
+Store.prototype.statusUpdates = function (hm, rows, value) {
+  var c = this.cfg, tab = quoteTab(c.rawTab || 'RAW data');
+  if (!hm['settlement status'] || !rows.length) return Promise.resolve([]);
+  var L = E.colLetter(hm['settlement status']), runs = E.rowRuns(rows);
+  return this.client.batchGet(c.sheetId, runs.map(function (run) { return tab + '!' + L + run.start + ':' + L + run.end; }), { major: 'COLUMNS', render: 'FORMULA' })
+    .then(function (vrs) {
+      var plain = [];
+      runs.forEach(function (run, i) {
+        var col = ((vrs[i] && vrs[i].values) || [[]])[0] || [];
+        for (var r = run.start; r <= run.end; r++) {
+          var v = col[r - run.start];
+          if (!(typeof v === 'string' && v.charAt(0) === '=')) plain.push(r);
+        }
+      });
+      return E.rowRuns(plain).map(function (run) {
+        var vals = [];
+        for (var i = run.start; i <= run.end; i++) vals.push([value]);
+        return { range: tab + '!' + L + run.start + ':' + L + run.end, values: vals };
+      });
+    });
 };
 
 /* ---------- Undo a payout (transfer came back) ---------- */
@@ -461,7 +489,8 @@ Store.prototype.reverse = function (batchId, tids, reason, onStep) {
         for (var i = run.start; i <= run.end; i++) vals.push(['0']);
         return { range: tab + '!' + col + run.start + ':' + col + run.end, values: vals };
       });
-      var p1 = data.length ? self.client.update(c.sheetId, data, 'RAW') : Promise.resolve();
+      var p1 = data.length ? self.statusUpdates(hm, ok.map(function (x) { return x.row; }), 'NOTSETTLED')
+        .then(function (extra) { return self.client.update(c.sheetId, data.concat(extra), 'RAW'); }) : Promise.resolve();
       return p1.then(function () {
         var who = self.user(), when = nowLabel(), logData = [];
         E.rowRuns(ok.map(function (x) { return x.logRow; })).forEach(function (run) {
@@ -523,6 +552,10 @@ Store.prototype.importRows = function (plan, onStep) {
         fr.rows.forEach(function (row, i) {
           row.forEach(function (v, col) { if (typeof v === 'string' && v.charAt(0) === '=') srcRow[col] = fr.from + i; });
         });
+        var stCol = raw.hm['settlement status'] ? raw.hm['settlement status'] - 1 : -1;
+        if (stCol >= 0 && srcRow[stCol] === undefined && plan.mappedCols[stCol] === undefined) {
+          rows.forEach(function (x) { x.values[stCol] = 'NOTSETTLED'; });
+        }
         var requests = [{ updateCells: {
           start: { sheetId: raw.gid, rowIndex: start - 1, columnIndex: 0 },
           rows: rows.map(function (x) { return { values: x.values.slice(0, raw.header.length).map(cellData) }; }),

@@ -899,6 +899,7 @@ function importGo() {
 /*  Data check                                                          */
 /* ------------------------------------------------------------------ */
 var ISSUE_TEXT = { FIXED: 'Day and month swapped in the sheet', ODD: 'Date does not fit', NO_DATE: 'No date', FUTURE: 'Future date',
+  STATUS: 'Settlement Status disagrees',
   DUP_PAID: 'Duplicate of a paid row', DUP: 'Duplicate row', AMOUNT: 'Amount not a number', NO_TID: 'No TID' };
 
 function viewCheck() {
@@ -906,7 +907,7 @@ function viewCheck() {
   var list = S.issues, by = {};
   list.forEach(function (x) { by[x.kind] = (by[x.kind] || 0) + 1; });
   var fixable = list.filter(function (x) { return x.kind === 'FIXED'; });
-  var h = head('Data check', 'Unpaid rows in RAW data that could make a payout wrong. The tool already handles them as described; fix the sheet when you can.',
+  var h = head('Data check', 'Rows in RAW data that could make a payout wrong. The tool already handles them as described; fix the sheet when you can.',
     list.length ? '<button class="btn" data-action="check-export">Download list</button>' : '');
   if (!list.length) return h + '<div class="panel empty"><b>No problems found</b> in the unpaid rows.</div>';
   h += '<div class="panel"><div class="figures">' + Object.keys(by).map(function (k) {
