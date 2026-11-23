@@ -540,7 +540,7 @@ function runSettle(lines, expected, payKey, source) {
       return S.store.loadLog().then(function (log) {
         var raw = out.raw || S.raw;
         raw.recs.forEach(function (r) {
-          if (stamped[r.row]) { r.paid = true; r.paidLabel = out.label; r.paidKey = out.payKey; r._s = null; }
+          if (stamped[r.row]) { r.paid = true; r.paidLabel = out.label; r.paidKey = out.payKey; r._s = null; if (r.stLabel) r.stLabel = 'SETTLED'; }
         });
         setData(raw, log);
         done();
