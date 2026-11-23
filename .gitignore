@@ -1,0 +1,5 @@
+node_modules/
+scratch/
+realtest/
+*.xlsx
+.DS_Store
